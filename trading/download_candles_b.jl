@@ -1,0 +1,85 @@
+using Random, JLD, HTTP, Dates, JSON
+
+function timestamp(datetime)
+    floor(Int64, datetime2unix(datetime))
+end
+
+function get_candle_batch(symbol, n_candles, candle_size, candle_offset = 0)
+    candles = Dict{String, Any}[]
+
+    # TODO: hour, day, wk candles
+    n_batch_reqlimit = [1 3 5 10 15 30; 400 133 80 36 25 12]
+    i_batch_reqlimit = n_batch_reqlimit[1, :] .== candle_size
+    n_candles_batch = n_batch_reqlimit[2, i_batch_reqlimit][1]
+
+    if n_candles < n_candles_batch
+        batch_s = n_candles*candle_size*60
+    else
+        batch_s = n_candles_batch*candle_size*60
+    end
+
+    batches = Int(ceil(n_candles/n_candles_batch))
+    now_s = timestamp(now())
+    for i_batch in 1:batches
+        println("Download Progress: ", i_batch/batches)
+
+        offset_s = candle_offset*candle_size*60
+
+        start_s = Int64(1000*(now_s - offset_s - (i_batch + 1)*batch_s + 1))
+        end_s = Int64(1000*(now_s - offset_s - i_batch*batch_s))
+        println(start_s, ", ", end_s)
+
+        url = string("https://open-api.bingx.com/openApi/swap/v3/quote/klines?symbol=", symbol, "&interval=", candle_size, "m&startTime=", start_s, "&endTime=", end_s)
+        candles_response = HTTP.get(url)
+        candles_string = String(candles_response.body)
+        candles_dict = JSON.parse(candles_string)
+        #TMR_flag = true
+        #while TMR_flag == true
+            candles_response = HTTP.get(url)
+            candles_string = String(candles_response.body)
+            candles_dict = JSON.parse(candles_string)
+
+            #println(candles_dict)
+            #sleep(10)
+            #TMR_flag = candles_dict.count != 2
+            #if TMR_flag
+            #    println("Request delayed")
+            #    sleep(1)
+            #end
+        #end
+
+        candles_packed = candles_dict["data"]
+        for i_candle in 1:lastindex(candles_packed)
+            candle_strings = candles_packed[i_candle]
+            push!(candles, candle_strings)
+        end
+    end
+
+    return reverse(candles)
+end
+
+
+function get_ohlc(symbol, n_candles, candle_size, candle_offset = 0)
+    candles_vec = get_candle_batch(symbol, n_candles, candle_size, candle_offset)
+
+    xW = 4
+    xL = n_candles
+
+    ohlc = zeros(Float32, xL, xW)
+    for i = 1:xL
+        ohlc[i, :] = parse.(Float32, [candles_vec[i]["open"], candles_vec[i]["high"], candles_vec[i]["low"], candles_vec[i]["close"]])
+    end
+
+    return ohlc
+end
+
+symbol = "AVAX-USDT"
+n_candles = 100000
+interval = 1
+candle_offset = 0
+ohlc = get_ohlc(symbol, n_candles, interval, candle_offset)
+println(size(ohlc))
+
+namedata = HTTP.escapeuri(string(now()))
+save(string(pwd(), "\\data\\", lowercase(symbol), "\\ohlc_n", n_candles, "_i", interval, symbol, namedata,".jld"), "ohlc", ohlc)
+

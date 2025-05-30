@@ -1,0 +1,24 @@
+using Flux
+using CUDA
+
+# Check if the GPU is available
+if CUDA.functional()
+    # Create a simple RNN model and move it to the GPU
+    simple_rnn = Flux.RNN(1, 1, (x -> x)) |> gpu
+
+    # Create input sequence as a 3D array
+    A = Float32[5 6]
+    input_data = reshape(A, (1, 1, 2)) # Reshape to a 3D array with dimensions (feature, time, batch)
+
+    # Move input data to the GPU
+    input_data_gpu = input_data |> gpu
+
+    # Apply the RNN model to the input data
+    output_data_gpu = simple_rnn(input_data_gpu)
+
+    # Move the output data back to the CPU
+    output_data = Array(output_data_gpu)
+else
+    println("GPU is not available.")
+end
+
