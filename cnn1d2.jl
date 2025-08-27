@@ -25,7 +25,7 @@ function build_cnn(input_size::Int, input_channels::Int, output_size::Int)
         Dense(832, 128, relu),
         Dropout(0.5),
         Dense(128, output_size*output_channels, relu),
-        Dense(output_size*output_channels, output_size*output_channels)
+        Dense(output_size*output_channels, output_size*output_channels),
         Flux.Scale(output_size*output_channels)
     )
     return ch
