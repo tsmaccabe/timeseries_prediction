@@ -41,7 +41,7 @@ end
 
 # Set the initial conditions and parameters
 u0 = [1.0, 1.0, 1.0]
-tspan = (0, 5)
+tspan = (5, 25)
 p = [10.0, 28.0, 8.0/3.0]
 
 # Solve the differential equation
@@ -98,10 +98,10 @@ data = Flux.DataLoader((x_train, y_train), batchsize=10, shuffle=true)
 # Custom training loop with loss plotting
 loss_values = Float64[]
 
-epochs = 100
+epochs = 1000
 
-initial_lr = 0.001
-decay_rate = 2.
+initial_lr = 0.00001
+decay_rate = 0.
 decay_steps = epochs
 
 opt = Flux.setup(ADAM(initial_lr), model)
@@ -119,15 +119,17 @@ for epoch in 1:epochs
         Flux.update!(opt, model, ∂L∂m)
     end
     
-    Flux.adjust!(opt, exponential_decay(initial_lr, decay_rate, epoch, decay_steps))
+    learn_rate = exponential_decay(initial_lr, decay_rate, epoch, decay_steps)
+    Flux.adjust!(opt, learn_rate)
 
     epoch_loss /= num_batches
     push!(loss_values, epoch_loss)
-    println("Epoch $epoch - Loss: $epoch_loss")
+    println("Epoch $epoch - Loss: $epoch_loss - Learning Rate: $learn_rate")
 end
 
 # Plot the loss values
 pltl = plot(loss_values, xlabel="Epoch", ylabel="Loss", label="Training Loss", legend=:topleft)
+display(pltl)
 
 # Get test sample
 test_idx = 1
